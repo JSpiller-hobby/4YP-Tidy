@@ -60,6 +60,7 @@ class BasicDataset(Dataset):
         #------------------------------------------------------------------------------------------------
         img = np.asarray(datum)
         
+        #Return channel first; CHW
         img = img.transpose((2, 0, 1)) 
 
         #for images, set all values between 0 and 1.
