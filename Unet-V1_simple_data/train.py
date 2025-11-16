@@ -1,9 +1,14 @@
 #original: https://github.com/milesial/Pytorch-UNet
 #Licensed under GNU GENERAL PUBLIC LICENSE V3
-#MODIFICATION: removed logging with wandb; removed use of other irelevant tools; removed use of carvana dataset; updated calls to torch AMP package, using CPU now; 
+#MODIFICATION: removed us of wandb; removed use of other irrelevant tools; removed use of carvana dataset; updated calls to torch AMP package, using CPU now; 
 # replaced cross entropy loss with MSE loss; removed code for handling one mask property only, as this is not releveant to our current data;
 # removed addition of dice loss to criterion output; added numpy code to normalise the ground truth and add a ground truth array for the opposite direction, 
-#taking the lowest loss as the result (this would be better in the data_logging section, but expedient to add here).
+#taking the lowest loss as the result (this would be better in the data_logging section, but expedient to add here); modified default arguments; moved global step;
+# set zero_grad 'setto_none' to False;
+
+
+#TODO: move the velocity mask processing all into data_loading utility. Put evaluation round outside batch loop?
+#      There may be a bug, due to mismatched channel-first and channel-last data. Need to check.
 
 #External modules:
 import argparse
@@ -20,7 +25,6 @@ from pathlib import Path
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
-import numpy as np
 
 #This REPO:
 from evaluate import evaluate
@@ -41,7 +45,7 @@ def train_model(
         learning_rate: float = 1e-5,
         val_percent: float = 0.1,
         save_checkpoint: bool = True,
-        img_scale: float = 0.5,
+        img_scale: float = 1,
         amp: bool = False,
         weight_decay: float = 1e-8,
         momentum: float = 0.999,
@@ -81,9 +85,9 @@ def train_model(
 
     criterion = nn.MSELoss(size_average=None, reduce=None, reduction='mean')
 
+    # 5. Begin training
     global_step = 0
 
-    # 5. Begin training
     for epoch in range(1, epochs + 1):
         model.train()
         epoch_loss = 0
@@ -96,36 +100,37 @@ def train_model(
                     f'but loaded images have {images.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
                 
-                images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
-
+                images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last) 
+                                                                                                           
                 #Normalise velocities, add the mask for rotation in the other direction:
-                true_masks_n = np.linalg.norm(true_masks)*np.ones(true_masks.shape)
-                true_masks = np.divide(true_masks, true_masks_n)
+                true_mask_normed_vectors = torch.linalg.vector_norm(true_masks, ord=2, dim=1, keepdim=False)
+                true_mask_norms = torch.linalg.matrix_norm(true_mask_normed_vectors, ord = 'fro', dim = (-2, -1))
+                true_masks = torch.div(true_masks, true_mask_norms)
 
-                true_masks_other_dir = np.negative(true_masks)
+                true_masks_other_dir = torch.neg(true_masks)
 
-                true_masks = true_masks.to(device=device, dtype=torch.long)
-                true_masks_other_dir = true_masks_other_dir.to(device=device, dtype=torch.long)
+                true_masks = true_masks.to(device=device, dtype=torch.float)
+                true_masks_other_dir = true_masks_other_dir.to(device=device, dtype=torch.float)
 
                 with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
                     masks_pred = model(images)
-                    loss_1 = criterion(masks_pred, true_masks.float())
-                    loss_2 = criterion(masks_pred, true_masks_other_dir.float())
+                    loss_1 = criterion(masks_pred, true_masks)
+                    loss_2 = criterion(masks_pred, true_masks_other_dir)
                     loss = min(loss_1, loss_2)
    
-                optimizer.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=False)
                 grad_scaler.scale(loss).backward()      
                 grad_scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
 
-                pbar.update(images.shape[0])
+                pbar.update(images.shape[0]) 
                 global_step += 1                                           
                 epoch_loss += loss.item()                                  
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
-                # Evaluation round (each batch)
+                # Evaluation round (each epoch)
                 division_step = (n_train // (epochs * batch_size))              
                 if division_step > 0:
                     if global_step % division_step == 0:
@@ -145,11 +150,11 @@ def train_model(
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=32, help='Batch size') ##########################( default = 1)
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size') 
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-5,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images') ################################# (default = 0.5)
+    parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images') 
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -167,9 +172,9 @@ if __name__ == '__main__':
 
     # Change here to adapt to your data
     # n_channels=3 for RGB images
-    # n_properties is the number of properties you want to get per pixel
+    # n_properties is the number of properties you want to get per pixel, hence the size of the mask in the non-height/width axis.
     model = UNet(n_channels=3, n_properties=args.properties, bilinear=args.bilinear)
-    model = model.to(memory_format=torch.channels_last)
+    model = model.to(memory_format=torch.channels_last) # This is for efficiency. It causes the model weights to be stored NHWC, and automatically converts input data to NHWC.
 
     logging.info(f'Network:\n'
                  f'\t{model.n_channels} input channels\n'

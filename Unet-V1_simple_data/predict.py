@@ -2,6 +2,8 @@
 #Licensed under GNU GENERAL PUBLIC LICENSE V3
 #MODIFICATION: changed default arguments; removed code for creating the output image; changed file extension for output to .npy; removed mask_to_img function; changed how to result is saved (it is a different format)
 
+#NOT YET PROPERLY IMPLEMENTED
+
 import argparse
 import logging
 import os
