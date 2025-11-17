@@ -105,6 +105,12 @@ def train_model(
                 #Normalise velocities, add the mask for rotation in the other direction:
                 true_mask_normed_vectors = torch.linalg.vector_norm(true_masks, ord=2, dim=1, keepdim=False)
                 true_mask_norms = torch.linalg.matrix_norm(true_mask_normed_vectors, ord = 'fro', dim = (-2, -1))
+                
+                
+                true_mask_norms = true_mask_norms.unsqueeze(1)
+                true_mask_norms = true_mask_norms.unsqueeze(2)
+                true_mask_norms = true_mask_norms.unsqueeze(3)
+                true_mask_norms = true_mask_norms.repeat(1,2,256,256)
                 true_masks = torch.div(true_masks, true_mask_norms)
 
                 true_masks_other_dir = torch.neg(true_masks)
@@ -178,7 +184,7 @@ if __name__ == '__main__':
 
     logging.info(f'Network:\n'
                  f'\t{model.n_channels} input channels\n'
-                 f'\t{model.n_properties} output channels (classes)\n'
+                 f'\t{model.n_properties} output channels\n'
                  f'\t{"Bilinear" if model.bilinear else "Transposed conv"} upscaling')
 
     if args.load:

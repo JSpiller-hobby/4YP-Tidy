@@ -15,7 +15,7 @@ def plot_img_and_mask(img, mask):
     X, Y = np.meshgrid(range(width), range(height))
     U = mask[0,:,:]
     V = mask[1,:,:]
-    plt.quiver(X, Y, U, V, color='g')
+    plt.quiver(X, Y, U, V, color='g', scale_units = 'xy')
     plt.title('Velocity Vector Field')
     plt.grid()
     plt.gca().set_aspect("equal")
@@ -27,7 +27,7 @@ def plot_mask(mask):
     X, Y = np.meshgrid(range(width), range(height))
     U = mask[:,:,0]
     V = mask[:,:,1]
-    plt.quiver(X, Y, U, V, color='g')
+    plt.quiver(X, Y, U, V, color='g', scale_units = 'xy')
     plt.title('Velocity Vector Field')
     plt.grid()
     plt.gca().set_aspect("equal")
