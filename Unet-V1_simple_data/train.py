@@ -4,7 +4,7 @@
 # replaced cross entropy loss with MSE loss; removed code for handling one mask property only, as this is not releveant to our current data;
 # removed addition of dice loss to criterion output; added numpy code to normalise the ground truth and add a ground truth array for the opposite direction, 
 #taking the lowest loss as the result (this would be better in the data_logging section, but expedient to add here); modified default arguments; moved global step;
-# set zero_grad 'setto_none' to False;
+# set zero_grad 'setto_none' to False; added option for overfitting dataset;
 
 
 #TODO: move the velocity mask processing all into data_loading utility. Put evaluation round outside batch loop?
@@ -28,28 +28,14 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
 #This REPO:
-from evaluate import evaluate
+from evaluate import evaluate, normalise_and_reverse
 from unet import UNet
-from utils.data_loading import BasicDataset   
+from utils.data_loading import BasicDataset, OverfitDataset   
 
 #Specify the data in this directory for training
-dir_img = Path('./data/imgs1/')                                  
-dir_mask = Path('./data/masks1/')                                
+dir_img = Path('./data/imgsOverfit/')                                  
+dir_mask = Path('./data/masksOverfit/')                                
 dir_checkpoint = Path('./checkpoints/')
-
-#Function to normalise a batch of masks (velocity fields) and create a mask with reversed gear directions 
-def normalise_and_reverse(masks):
-    if masks.size() == torch.Size([2, 256, 256]):
-        masks = masks.unsqueeze(0)
-
-    mask_norms = torch.linalg.vector_norm(masks, ord = 2, dim = (1,2,3), keepdim = True)
-
-    mask_norms = mask_norms.repeat(1,2,256,256)
-    masks = torch.div(masks, mask_norms)
-
-    masks_other_dir = torch.neg(masks)
-
-    return masks, masks_other_dir
 
 #Function to run training using torch
 def train_model(
@@ -67,7 +53,8 @@ def train_model(
         gradient_clipping: float = 1.0,
 ):
     # 1. Create dataset
-    dataset = BasicDataset(dir_img, dir_mask, img_scale)  
+    #dataset = BasicDataset(dir_img, dir_mask, img_scale) 
+    dataset = OverfitDataset(dir_img, dir_mask, img_scale) 
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)

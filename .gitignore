@@ -7,4 +7,5 @@ venv
 4YP-TIDY/venv
 4YP-TIDY/venv/
 Example_data
-MODEL.pth
+Unet-V1_simple_data/models
+

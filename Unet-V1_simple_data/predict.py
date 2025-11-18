@@ -1,22 +1,23 @@
 #original: https://github.com/milesial/Pytorch-UNet
 #Licensed under GNU GENERAL PUBLIC LICENSE V3
 #MODIFICATION: changed default arguments; removed code for creating the output image; changed file extension for output to .npy; removed mask_to_img function; changed how to result is saved (it is a different format)
-#; removed mask_threshold argument; 
+#; removed mask_threshold argument; added visualisation for ground truth; added normalisation of output to predict_mask; added subplotting
 
 #NOTE: image scaling not currently implemented
 
 import argparse
 import logging
 import os
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
+import matplotlib.pyplot as plt
 
 from utils.data_loading import BasicDataset
 from unet import UNet
-from utils.utils import plot_img_and_mask
+from utils.utils import plot_img_and_mask, plot_mask
+from train import normalise_and_reverse
 
 def predict_mask(net,
                 full_img,
@@ -29,7 +30,8 @@ def predict_mask(net,
     img = img.to(device=device, dtype=torch.float32)
 
     with torch.no_grad():
-        output = net(img).cpu()
+        output, _ = normalise_and_reverse(net(img))
+        output = output.cpu()
     #    mask = F.interpolate(output, (full_img.size[1], full_img.size[0]), mode='bilinear') 
         mask = output
 
@@ -49,6 +51,7 @@ def get_args():
                         help='Scale factor for the input images')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
     parser.add_argument('--properties', '-p', type=int, default=2, help='Number of properties')
+    parser.add_argument('--target', '-t', metavar='TARGET', nargs='+', default = 'inference_only', help='Ground truth masks')
     
     return parser.parse_args()
 
@@ -97,5 +100,13 @@ if __name__ == '__main__':
 
         if args.viz:
             logging.info(f'Visualizing results for image {filename}, close to continue...')
-            plot_img_and_mask(img, mask)
+            plt.subplot(1, 2, 1)
+            plot_img_and_mask(img, mask, 'Predicted Velocities')
+            if args.target != 'inference_only':
+                gt = np.load(args.target[0])
+                plt.subplot(1, 2, 2)
+                plot_mask(gt, 'GT Velocities')
+            plt.show()
+
+
  

@@ -2,12 +2,25 @@
 #Licensed under GNU GENERAL PUBLIC LICENSE V3
 #MODIFICATION: removed use of dice score, replaced it with just the validation loss
 
-#TODO: 
+#TODO:
 
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
+#Function to normalise a batch of masks (velocity fields) and create a mask with reversed gear directions 
+def normalise_and_reverse(masks):
+    if masks.size() == torch.Size([2, 256, 256]):
+        masks = masks.unsqueeze(0)
+
+    mask_norms = torch.linalg.vector_norm(masks, ord = 2, dim = (1,2,3), keepdim = True)
+
+    mask_norms = mask_norms.repeat(1,2,256,256)
+    masks = torch.div(masks, mask_norms)
+
+    masks_other_dir = torch.neg(masks)
+
+    return masks, masks_other_dir
 
 @torch.inference_mode()
 def evaluate(net, dataloader, device, amp):
@@ -21,25 +34,17 @@ def evaluate(net, dataloader, device, amp):
         for batch in tqdm(dataloader, total=num_val_batches, desc='Validation round', unit='batch', leave=False):
             image, true_masks = batch['image'], batch['mask']
 
-            # move images and labels to correct device and type
+            # move images and normalised masks to correct device and type
             image = image.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
 
-            true_mask_normed_vectors = torch.linalg.vector_norm(true_masks, ord=2, dim=1, keepdim=False)
-            true_mask_norms = torch.linalg.matrix_norm(true_mask_normed_vectors, ord = 'fro', dim = (-2, -1))
-
-            true_mask_norms = true_mask_norms.unsqueeze(1)
-            true_mask_norms = true_mask_norms.unsqueeze(2)
-            true_mask_norms = true_mask_norms.unsqueeze(3)
-            true_mask_norms = true_mask_norms.repeat(1,2,256,256)
-            true_masks = torch.div(true_masks, true_mask_norms)
-
-            true_masks_other_dir = torch.neg(true_masks)
+            true_masks, true_masks_other_dir = normalise_and_reverse(true_masks)
 
             true_masks = true_masks.to(device=device, dtype=torch.float)
             true_masks_other_dir = true_masks_other_dir.to(device=device, dtype=torch.float)
 
             # predict the mask
-            mask_pred = net(image)
+            masks_pred_raw = net(image) 
+            mask_pred, _ = normalise_and_reverse(masks_pred_raw)
 
             #compute loss 
 
