@@ -2,7 +2,7 @@
 #Licensed under GNU GENERAL PUBLIC LICENSE V3
 #MODIFICATION: removed use of dice score, replaced it with just the validation loss
 
-#TODO: There may be a bug, due to mismatched channel-first and channel-last data. Need to check.
+#TODO: 
 
 import torch
 import torch.nn.functional as F
@@ -42,11 +42,6 @@ def evaluate(net, dataloader, device, amp):
             mask_pred = net(image)
 
             #compute loss 
-
-            #---------------------------------------------------------DEBUG
-            #print(f"the shape of true mask batch is {mask_true.size()}")
-            #print(f"the shape of predicted mask batch is {mask_pred.size()}")
-            #---------------------------------------------------------DEBUG
 
             val_loss_1 += F.mse_loss(mask_pred, true_masks, size_average=None, reduce=None, reduction='mean', weight=None).item()
             val_loss_2 += F.mse_loss(mask_pred, true_masks_other_dir, size_average=None, reduce=None, reduction='mean', weight=None).item()

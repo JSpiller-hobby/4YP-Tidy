@@ -9,6 +9,7 @@
 
 #TODO: move the velocity mask processing all into data_loading utility. Put evaluation round outside batch loop?
 #      There may be a bug, due to mismatched channel-first and channel-last data. Need to check.
+#      Modify normalise_and_reverse() to handle image sizes =/ 256 x 256.
 
 #External modules:
 import argparse
@@ -32,9 +33,23 @@ from unet import UNet
 from utils.data_loading import BasicDataset   
 
 #Specify the data in this directory for training
-dir_img = Path('./data/imgs/')                                  
-dir_mask = Path('./data/masks/')                                
+dir_img = Path('./data/imgs1/')                                  
+dir_mask = Path('./data/masks1/')                                
 dir_checkpoint = Path('./checkpoints/')
+
+#Function to normalise a batch of masks (velocity fields) and create a mask with reversed gear directions 
+def normalise_and_reverse(masks):
+    if masks.size() == torch.Size([2, 256, 256]):
+        masks = masks.unsqueeze(0)
+
+    mask_norms = torch.linalg.vector_norm(masks, ord = 2, dim = (1,2,3), keepdim = True)
+
+    mask_norms = mask_norms.repeat(1,2,256,256)
+    masks = torch.div(masks, mask_norms)
+
+    masks_other_dir = torch.neg(masks)
+
+    return masks, masks_other_dir
 
 #Function to run training using torch
 def train_model(
@@ -103,23 +118,14 @@ def train_model(
                 images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last) 
                                                                                                            
                 #Normalise velocities, add the mask for rotation in the other direction:
-                true_mask_normed_vectors = torch.linalg.vector_norm(true_masks, ord=2, dim=1, keepdim=False)
-                true_mask_norms = torch.linalg.matrix_norm(true_mask_normed_vectors, ord = 'fro', dim = (-2, -1))
-                
-                
-                true_mask_norms = true_mask_norms.unsqueeze(1)
-                true_mask_norms = true_mask_norms.unsqueeze(2)
-                true_mask_norms = true_mask_norms.unsqueeze(3)
-                true_mask_norms = true_mask_norms.repeat(1,2,256,256)
-                true_masks = torch.div(true_masks, true_mask_norms)
-
-                true_masks_other_dir = torch.neg(true_masks)
+                true_masks, true_masks_other_dir = normalise_and_reverse(true_masks)
 
                 true_masks = true_masks.to(device=device, dtype=torch.float)
                 true_masks_other_dir = true_masks_other_dir.to(device=device, dtype=torch.float)
 
                 with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
-                    masks_pred = model(images)
+                    masks_pred_raw = model(images) 
+                    masks_pred, _ = normalise_and_reverse(masks_pred_raw)
                     loss_1 = criterion(masks_pred, true_masks)
                     loss_2 = criterion(masks_pred, true_masks_other_dir)
                     loss = min(loss_1, loss_2)
