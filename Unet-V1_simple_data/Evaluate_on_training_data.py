@@ -17,11 +17,11 @@ from unet import UNet
 from utils.data_loading import BasicDataset, OverfitDataset  
 
 #Data locations
-dir_img = Path('./data/1GearData/imgs/')                                  
-dir_mask = Path('./data/1GearData/masks/') 
+dir_img = Path('./Unet/data/2GearData/imgs/')                                  
+dir_mask = Path('./Unet/data/2GearData/masks/') 
 
 #Model location
-model = Path('./models/MODEL_1GEAR.pth')
+model = Path('./Unet/models/MODEL_2GEARS.pth')
 
 #Dataloader (replace params with those used in training)
 ##PARAMS--------------------------------------------------------------

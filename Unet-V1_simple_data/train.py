@@ -33,8 +33,8 @@ from unet import UNet
 from utils.data_loading import BasicDataset, OverfitDataset   
 
 #Specify the data in this directory for training
-dir_img = Path('./data/1GearData/imgs/')                                  
-dir_mask = Path('./data/1GearData/masks/')                                
+dir_img = Path('./Unet/data/2GearData/imgs/')                                  
+dir_mask = Path('./Unet/data/2GearData/masks/')                                
 dir_checkpoint = Path('./checkpoints/')
 
 #Function to run training using torch
