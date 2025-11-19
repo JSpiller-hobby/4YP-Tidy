@@ -17,11 +17,11 @@ from unet import UNet
 from utils.data_loading import BasicDataset, OverfitDataset  
 
 #Data locations
-dir_img = Path('./data/imgsOverfit/')                                  
-dir_mask = Path('./data/masksOverfit/')
+dir_img = Path('./data/1GearData/imgs/')                                  
+dir_mask = Path('./data/1GearData/masks/') 
 
 #Model location
-model = Path('./models/MODEL_OVERFIT.pth')
+model = Path('./models/MODEL_1GEAR.pth')
 
 #Dataloader (replace params with those used in training)
 ##PARAMS--------------------------------------------------------------
@@ -32,10 +32,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 amp = False
 properties = 2
 bilinear = False
-##--------------------------------------------------------------------
 
-#dataset = BasicDataset(dir_img, dir_mask, img_scale)
-dataset = OverfitDataset(dir_img, dir_mask, img_scale)   
+dataset = BasicDataset(dir_img, dir_mask, img_scale)
+#dataset = OverfitDataset(dir_img, dir_mask, img_scale) 
+##--------------------------------------------------------------------  
 
 n_val = int(len(dataset) * val_percent)
 n_train = len(dataset) - n_val

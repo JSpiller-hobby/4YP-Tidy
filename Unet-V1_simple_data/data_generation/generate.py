@@ -21,13 +21,13 @@ import json
 import os
 
 #PARAMETERS
-path = ".//data"
+path = ".//data//1GearData//"
 n_data = 10000
 width = 256
-min_rad = width/15 
-max_rad = width/4
-min_gears = 2
-max_gears = 10
+min_rad = width/10 
+max_rad = width/3
+min_gears = 1
+max_gears = 1
 edge_width = 0.03
 velocity_scale = 1
 

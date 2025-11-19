@@ -33,8 +33,8 @@ from unet import UNet
 from utils.data_loading import BasicDataset, OverfitDataset   
 
 #Specify the data in this directory for training
-dir_img = Path('./data/imgsOverfit/')                                  
-dir_mask = Path('./data/masksOverfit/')                                
+dir_img = Path('./data/1GearData/imgs/')                                  
+dir_mask = Path('./data/1GearData/masks/')                                
 dir_checkpoint = Path('./checkpoints/')
 
 #Function to run training using torch
@@ -53,8 +53,8 @@ def train_model(
         gradient_clipping: float = 1.0,
 ):
     # 1. Create dataset
-    #dataset = BasicDataset(dir_img, dir_mask, img_scale) 
-    dataset = OverfitDataset(dir_img, dir_mask, img_scale) 
+    dataset = BasicDataset(dir_img, dir_mask, img_scale) 
+    #dataset = OverfitDataset(dir_img, dir_mask, img_scale) 
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
